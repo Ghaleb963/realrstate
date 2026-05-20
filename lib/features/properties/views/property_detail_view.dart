@@ -35,16 +35,29 @@ class _PropertyDetailViewState extends ConsumerState<PropertyDetailView> {
     if (!mounted) return;
     showAppLoadingDialog(context, message: 'جاري إنشاء PDF...');
 
-    final bytes = await PdfService.generatePropertyPdf(
-      property: _property,
-      settings: settings,
-    );
+    try {
+      final bytes = await PdfService.generatePropertyPdf(
+        property: _property,
+        settings: settings,
+      );
 
-    if (mounted) Navigator.pop(context);
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: '${_isOffer ? "Property" : "Request"}_${_property.id}.pdf',
-    );
+      if (mounted) Navigator.pop(context);
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: '${_isOffer ? "Property" : "Request"}_${_property.id}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في إنشاء PDF: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _confirmDelete() async {
@@ -186,7 +199,6 @@ class _PropertyDetailViewState extends ConsumerState<PropertyDetailView> {
           const SizedBox(width: AppTheme.sp8),
         ],
       ),
-
       floatingActionButton: _isOffer
           ? FloatingActionButton.extended(
               onPressed: _showStatusSheet,
@@ -196,14 +208,11 @@ class _PropertyDetailViewState extends ConsumerState<PropertyDetailView> {
               elevation: 0,
             )
           : null,
-
       body: ListView(
         children: [
           if (_isOffer && _property.images.isNotEmpty)
             ImageGallery(images: _property.images),
-
           HeroHeader(property: _property, entryColor: entryColor),
-
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppTheme.sp16,
@@ -216,7 +225,6 @@ class _PropertyDetailViewState extends ConsumerState<PropertyDetailView> {
               children: [
                 SpecsGrid(property: _property),
                 const SizedBox(height: AppTheme.sp16),
-
                 DetailSection(
                   title: 'الموقع',
                   icon: Icons.location_on_rounded,
@@ -241,7 +249,6 @@ class _PropertyDetailViewState extends ConsumerState<PropertyDetailView> {
                       ),
                   ],
                 ),
-
                 if (_isOffer) ...[
                   DetailSection(
                     title: 'مواصفات العقار',
@@ -309,20 +316,17 @@ class _PropertyDetailViewState extends ConsumerState<PropertyDetailView> {
                         ),
                     ],
                   ),
-
                   if (_property.features.isNotEmpty)
                     FeaturesSection(
                       features: _property.features,
                       color: entryColor,
                     ),
                 ],
-
                 ContactSection(
                   property: _property,
                   isOffer: _isOffer,
                   entryColor: entryColor,
                 ),
-
                 if (_property.notes.isNotEmpty)
                   NotesSection(
                     notes: _property.notes,
