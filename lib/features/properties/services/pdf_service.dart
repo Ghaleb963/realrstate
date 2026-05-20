@@ -44,25 +44,27 @@ class PdfService {
 
       final imageWidgets = <pw.Widget>[];
       if (isOffer && property.images.isNotEmpty) {
-        try {
-          final processedImages = await _processImages(property.images);
-          for (final processed in processedImages) {
-            if (processed == null) continue;
+        for (final path in property.images) {
+          try {
+            final file = File(path);
+            if (!file.existsSync()) continue;
+            final bytes = await file.readAsBytes();
+            if (bytes.isEmpty) continue;
             imageWidgets.add(
               pw.Container(
                 margin: const pw.EdgeInsets.only(bottom: 20),
                 child: pw.Center(
                   child: pw.Image(
-                    pw.MemoryImage(processed),
+                    pw.MemoryImage(bytes),
                     fit: pw.BoxFit.contain,
                     width: 450,
                   ),
                 ),
               ),
             );
+          } catch (_) {
+            // تجاهل الصورة التالفة أو المفقودة
           }
-        } catch (_) {
-          // If image processing fails, continue without images
         }
       }
 
@@ -183,40 +185,7 @@ class PdfService {
     }
   }
 
-  static Future<List<Uint8List?>> _processImages(List<String> paths) async {
-    if (paths.isEmpty) return [];
-    // نعالج كل صورة بشكل منفصل في isolate لتقليل استهلاك الذاكرة
-    final List<Uint8List?> results = [];
-    for (final path in paths) {
-      try {
-        final result = await Isolate.run(() => _processSingleImage(path));
-        results.add(result);
-      } catch (_) {
-        results.add(null);
-      }
-    }
-    return results;
-  }
-
-  // معالجة صورة واحدة فقط
-  static Uint8List? _processSingleImage(String path) {
-    try {
-      if (!File(path).existsSync()) return null;
-      final bytes = File(path).readAsBytesSync();
-      if (bytes.isEmpty) return null;
-      final image = img.decodeImage(bytes);
-      if (image == null) return null;
-      final compressed = img.encodeJpg(
-        image,
-        quality: 45,
-      );
-      return Uint8List.fromList(compressed);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // لم يعد هناك داعٍ لدالة دفعة واحدة
+  // لم يعد هناك داعٍ لأي معالجة صور هنا
 
   static pw.Widget _buildPdfRow(String title, String value) {
     return pw.Container(
