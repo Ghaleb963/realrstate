@@ -185,46 +185,38 @@ class PdfService {
 
   static Future<List<Uint8List?>> _processImages(List<String> paths) async {
     if (paths.isEmpty) return [];
-
-    try {
-      return await Isolate.run(() => _processImagesSync(paths));
-    } catch (e) {
-      // If isolate fails, fall back to main thread processing
-      return _processImagesSync(paths);
-    }
-  }
-
-  static List<Uint8List?> _processImagesSync(List<String> paths) {
-    final results = <Uint8List?>[];
+    // نعالج كل صورة بشكل منفصل في isolate لتقليل استهلاك الذاكرة
+    final List<Uint8List?> results = [];
     for (final path in paths) {
       try {
-        if (!File(path).existsSync()) {
-          results.add(null);
-          continue;
-        }
-        final bytes = File(path).readAsBytesSync();
-        if (bytes.isEmpty) {
-          results.add(null);
-          continue;
-        }
-        final image = img.decodeImage(bytes);
-        if (image == null) {
-          results.add(null);
-          continue;
-        }
-        // لا نغير الأبعاد الأصلية، فقط نضغط الجودة
-        // chromaSubsampling: "4:2:0" لضغط ألوان عالي الكفاءة
-        final compressed = img.encodeJpg(
-          image,
-          quality: 45, // جودة منخفضة لضغط عالي (يمكنك تعديلها)
-        );
-        results.add(Uint8List.fromList(compressed));
+        final result = await Isolate.run(() => _processSingleImage(path));
+        results.add(result);
       } catch (_) {
         results.add(null);
       }
     }
     return results;
   }
+
+  // معالجة صورة واحدة فقط
+  static Uint8List? _processSingleImage(String path) {
+    try {
+      if (!File(path).existsSync()) return null;
+      final bytes = File(path).readAsBytesSync();
+      if (bytes.isEmpty) return null;
+      final image = img.decodeImage(bytes);
+      if (image == null) return null;
+      final compressed = img.encodeJpg(
+        image,
+        quality: 45,
+      );
+      return Uint8List.fromList(compressed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // لم يعد هناك داعٍ لدالة دفعة واحدة
 
   static pw.Widget _buildPdfRow(String title, String value) {
     return pw.Container(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -148,10 +149,23 @@ class _AddPropertyViewState extends ConsumerState<AddPropertyView> {
 
     List<String> savedPaths = List<String>.from(existingImagePaths);
     for (var file in images) {
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${path.basename(file.path)}';
-      final savedFile = await file.copy('${mediaDir.path}/$fileName');
-      savedPaths.add(savedFile.path);
+      try {
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${path.basename(file.path)}';
+        final bytes = await file.readAsBytes();
+        final image = img.decodeImage(bytes);
+        if (image == null) continue;
+        final compressed = img.encodeJpg(image, quality: 45);
+        final savedFile = File('${mediaDir.path}/$fileName');
+        await savedFile.writeAsBytes(compressed);
+        savedPaths.add(savedFile.path);
+      } catch (_) {
+        // إذا فشل الضغط، احفظ النسخة الأصلية
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${path.basename(file.path)}';
+        final savedFile = await file.copy('${mediaDir.path}/$fileName');
+        savedPaths.add(savedFile.path);
+      }
     }
     return savedPaths;
   }
@@ -257,7 +271,8 @@ class _AddPropertyViewState extends ConsumerState<AddPropertyView> {
               .showSnackBar(const SnackBar(content: Text('تمت الإضافة بنجاح')));
 
           // ── نظام المطابقة الفورية ──────────────────────────────
-          final matches = ref.read(propertyProvider.notifier).findMatchesFor(property);
+          final matches =
+              ref.read(propertyProvider.notifier).findMatchesFor(property);
 
           if (matches != null && matches.isNotEmpty && mounted) {
             // نحفظ السياق ومرجع العقار قبل _resetForm() كي لا تُعاد
@@ -574,4 +589,3 @@ class _AddPropertyViewState extends ConsumerState<AddPropertyView> {
 // Widget مستقل لـ Selector نوع الإدخال.
 // فصله في Widget خاص يحترم مبدأ Single Responsibility
 // ويجعله قابلاً لإعادة الاستخدام أو التعديل دون المساس بالـ Form.
-
