@@ -82,8 +82,19 @@ class DatabaseHelper {
 
   /// ضبط إعدادات SQLite عند فتح الاتصال
   Future<void> _configureDB(Database db) async {
-    await db.execute('PRAGMA journal_mode=WAL');
-    await db.execute('PRAGMA foreign_keys=ON');
+    // On Android (sqflite) PRAGMA statements must be executed via query/rawQuery.
+    // Using execute(...) for PRAGMA can cause the SQLite error observed on device.
+    try {
+      await db.rawQuery('PRAGMA journal_mode=WAL');
+    } catch (_) {
+      // fallback: ignore if platform does not support or already set
+    }
+
+    try {
+      await db.rawQuery('PRAGMA foreign_keys=ON');
+    } catch (_) {
+      // ignore failures here as some environments may not allow changing pragmas
+    }
   }
 
   /// يُستدعى مرة واحدة فقط عند إنشاء DB لأول مرة
