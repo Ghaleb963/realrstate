@@ -3,7 +3,6 @@ import '../models/property_model.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../core/constants/app_constants.dart';
 import '../services/matching_service.dart';
-import '../../settings/providers/settings_provider.dart';
 
 class PropertyNotifier extends StateNotifier<List<PropertyModel>> {
   final Ref ref;
@@ -21,13 +20,6 @@ class PropertyNotifier extends StateNotifier<List<PropertyModel>> {
   }
 
   Future<bool> addProperty(PropertyModel property) async {
-    final settings = ref.read(settingsProvider);
-    final count = await DatabaseHelper.instance.getPropertiesCount();
-
-    if (!settings.isActivated && count >= AppConstants.freePropertyLimit) {
-      return false;
-    }
-
     final newId = await DatabaseHelper.instance.insertProperty(property);
     final inserted = property.copyWith(id: newId);
     state = [inserted, ...state];
@@ -106,10 +98,8 @@ final filteredPropertiesProvider = Provider<List<PropertyModel>>((ref) {
         filter.minRooms == null || p.rooms >= filter.minRooms!;
     final matchesMaxRooms =
         filter.maxRooms == null || p.rooms <= filter.maxRooms!;
-    final matchesMinArea =
-        filter.minArea == null || p.area >= filter.minArea!;
-    final matchesMaxArea =
-        filter.maxArea == null || p.area <= filter.maxArea!;
+    final matchesMinArea = filter.minArea == null || p.area >= filter.minArea!;
+    final matchesMaxArea = filter.maxArea == null || p.area <= filter.maxArea!;
     final matchesFloor = filter.selectedFloor == null ||
         filter.selectedFloor!.isEmpty ||
         p.floor.toLowerCase().contains(filter.selectedFloor!.toLowerCase());
@@ -246,14 +236,12 @@ class PropertyFilter {
       query: query ?? this.query,
       minPrice: minPrice != null ? minPrice() : this.minPrice,
       maxPrice: maxPrice != null ? maxPrice() : this.maxPrice,
-      selectedType:
-          selectedType != null ? selectedType() : this.selectedType,
+      selectedType: selectedType != null ? selectedType() : this.selectedType,
       selectedOwnerStatus: selectedOwnerStatus != null
           ? selectedOwnerStatus()
           : this.selectedOwnerStatus,
-      selectedProvince: selectedProvince != null
-          ? selectedProvince()
-          : this.selectedProvince,
+      selectedProvince:
+          selectedProvince != null ? selectedProvince() : this.selectedProvince,
       selectedAdType:
           selectedAdType != null ? selectedAdType() : this.selectedAdType,
       selectedStatus:
@@ -263,9 +251,8 @@ class PropertyFilter {
           : this.selectedFinishing,
       selectedFacade:
           selectedFacade != null ? selectedFacade() : this.selectedFacade,
-      selectedDeedType: selectedDeedType != null
-          ? selectedDeedType()
-          : this.selectedDeedType,
+      selectedDeedType:
+          selectedDeedType != null ? selectedDeedType() : this.selectedDeedType,
       minRooms: minRooms != null ? minRooms() : this.minRooms,
       maxRooms: maxRooms != null ? maxRooms() : this.maxRooms,
       minArea: minArea != null ? minArea() : this.minArea,
@@ -274,9 +261,8 @@ class PropertyFilter {
           selectedFloor != null ? selectedFloor() : this.selectedFloor,
       hasGarden: hasGarden != null ? hasGarden() : this.hasGarden,
       isDuplex: isDuplex != null ? isDuplex() : this.isDuplex,
-      selectedCurrency: selectedCurrency != null
-          ? selectedCurrency()
-          : this.selectedCurrency,
+      selectedCurrency:
+          selectedCurrency != null ? selectedCurrency() : this.selectedCurrency,
       selectedOwnership: selectedOwnership != null
           ? selectedOwnership()
           : this.selectedOwnership,

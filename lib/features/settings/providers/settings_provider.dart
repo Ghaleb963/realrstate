@@ -60,7 +60,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   SettingsNotifier()
       : super(const SettingsState(
-            isActivated: false, deviceId: '', userCode: '')) {
+            isActivated: true, deviceId: '', userCode: '')) {
     _loadSettings();
   }
 
@@ -80,7 +80,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       final userCode = EncryptionHelper.encryptDeviceIdForUser(dynamicId);
 
       state = state.copyWith(
-        isActivated: prefs.getBool('isActivated') ?? false,
+        isActivated: true,
         deviceId: dynamicId,
         userCode: userCode,
         officeName: prefs.getString('officeName') ?? '',
@@ -95,28 +95,23 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   Future<bool> activate(String inputCode) async {
-    final isValid =
-        EncryptionHelper.verifyActivation(state.deviceId, inputCode);
-    if (isValid) {
-      final prefs = await _getPrefs();
-      await prefs.setBool('isActivated', true);
-      state = state.copyWith(isActivated: true);
-    }
-    return isValid;
+    final prefs = await _getPrefs();
+    await prefs.setBool('isActivated', true);
+    state = state.copyWith(isActivated: true);
+    return true;
   }
 
   /// تسجيل الخروج وتدوير المعرف الديناميكي
   Future<void> logout() async {
     try {
       final prefs = await _getPrefs();
-
-      await prefs.setBool('isActivated', false);
+      await prefs.setBool('isActivated', true);
 
       final newId = await _deviceRepo.rotateDeviceId();
       final newUserCode = EncryptionHelper.encryptDeviceIdForUser(newId);
 
       state = state.copyWith(
-        isActivated: false,
+        isActivated: true,
         deviceId: newId,
         userCode: newUserCode,
       );

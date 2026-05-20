@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -9,43 +10,57 @@ import '../../../core/constants/app_constants.dart';
 import '../../settings/providers/settings_provider.dart';
 
 class PdfService {
+  static Future<List<pw.Font>>? _fontCache;
+
+  static Future<List<pw.Font>> _loadFonts() async {
+    if (_fontCache != null) return _fontCache!;
+
+    _fontCache = () async {
+      try {
+        final fontData =
+            await rootBundle.load('assets/fonts/Cairo-Regular.ttf');
+        final fontBoldData =
+            await rootBundle.load('assets/fonts/Cairo-Bold.ttf');
+        return [pw.Font.ttf(fontData), pw.Font.ttf(fontBoldData)];
+      } catch (_) {
+        final regular = await PdfGoogleFonts.notoSansArabicRegular();
+        final bold = await PdfGoogleFonts.notoSansArabicBold();
+        return [regular, bold];
+      }
+    }();
+
+    return _fontCache!;
+  }
+
   static Future<Uint8List> generatePropertyPdf({
     required PropertyModel property,
     required SettingsState settings,
   }) async {
-    late pw.Font arabicFont;
-    late pw.Font arabicBoldFont;
-    try {
-      final fontData = await rootBundle.load('assets/fonts/Cairo-Regular.ttf');
-      final fontBoldData = await rootBundle.load('assets/fonts/Cairo-Bold.ttf');
-      arabicFont = pw.Font.ttf(fontData);
-      arabicBoldFont = pw.Font.ttf(fontBoldData);
-    } catch (_) {
-      arabicFont = await PdfGoogleFonts.notoSansArabicRegular();
-      arabicBoldFont = await PdfGoogleFonts.notoSansArabicBold();
-    }
+    final fonts = await _loadFonts();
+    final arabicFont = fonts[0];
+    final arabicBoldFont = fonts[1];
 
     final isOffer = property.entryType == EntryType.offer;
     final pdf = pw.Document();
 
     final imageWidgets = <pw.Widget>[];
-    if (isOffer) {
-      for (final imagePath in property.images) {
-        final processed = await _processImage(imagePath);
-        if (processed != null) {
-          imageWidgets.add(
-            pw.Container(
-              margin: const pw.EdgeInsets.only(bottom: 20),
-              child: pw.Center(
-                child: pw.Image(
-                  pw.MemoryImage(processed),
-                  fit: pw.BoxFit.contain,
-                  width: 450,
-                ),
+    if (isOffer && property.images.isNotEmpty) {
+      final processedImages = await _processImages(property.images);
+
+      for (final processed in processedImages) {
+        if (processed == null) continue;
+        imageWidgets.add(
+          pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 20),
+            child: pw.Center(
+              child: pw.Image(
+                pw.MemoryImage(processed),
+                fit: pw.BoxFit.contain,
+                width: 450,
               ),
             ),
-          );
-        }
+          ),
+        );
       }
     }
 
@@ -162,17 +177,28 @@ class PdfService {
     return pdf.save();
   }
 
-  static Future<Uint8List?> _processImage(String path) async {
-    try {
-      final bytes = await File(path).readAsBytes();
-      final image = img.decodeImage(bytes);
-      if (image == null) return null;
-      img.Image resized = image;
-      if (image.width > 1000) resized = img.copyResize(image, width: 1000);
-      return Uint8List.fromList(img.encodeJpg(resized, quality: 75));
-    } catch (e) {
-      return null;
+  static Future<List<Uint8List?>> _processImages(List<String> paths) async {
+    return await Isolate.run(() => _processImagesSync(paths));
+  }
+
+  static List<Uint8List?> _processImagesSync(List<String> paths) {
+    final results = <Uint8List?>[];
+    for (final path in paths) {
+      try {
+        final bytes = File(path).readAsBytesSync();
+        final image = img.decodeImage(bytes);
+        if (image == null) {
+          results.add(null);
+          continue;
+        }
+        final resized =
+            image.width > 800 ? img.copyResize(image, width: 800) : image;
+        results.add(Uint8List.fromList(img.encodeJpg(resized, quality: 65)));
+      } catch (_) {
+        results.add(null);
+      }
     }
+    return results;
   }
 
   static pw.Widget _buildPdfRow(String title, String value) {
