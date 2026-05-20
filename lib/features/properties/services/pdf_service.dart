@@ -212,9 +212,13 @@ class PdfService {
           results.add(null);
           continue;
         }
-        final resized =
-            image.width > 800 ? img.copyResize(image, width: 800) : image;
-        results.add(Uint8List.fromList(img.encodeJpg(resized, quality: 65)));
+        // لا نغير الأبعاد الأصلية، فقط نضغط الجودة
+        // chromaSubsampling: "4:2:0" لضغط ألوان عالي الكفاءة
+        final compressed = img.encodeJpg(
+          image,
+          quality: 45, // جودة منخفضة لضغط عالي (يمكنك تعديلها)
+        );
+        results.add(Uint8List.fromList(compressed));
       } catch (_) {
         results.add(null);
       }
